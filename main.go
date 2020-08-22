@@ -8,9 +8,9 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"sesiontest/Helper"
-	"sesiontest/back"
-	"sesiontest/dbs"
+	"oa/Helper"
+	"oa/back"
+	"oa/dbs"
 )
 
 var sessionMgr *Helper.SessionMgr = nil
