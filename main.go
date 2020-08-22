@@ -7,7 +7,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"regexp"
 	"oa/Helper"
 	"oa/back"
 	"oa/dbs"
@@ -21,40 +20,35 @@ func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 		return "",errors.New("method must is post")
 	}else if r.Method == "POST"{
 		//获取cookie里面的值
-		sessionID := r.Header.Get("Cookie")
+		sessionID := r.Header.Get("Authentication")
 		//判断是否存在Cookiename
 		/**
 			dasdasd,Cookiename=asdasdasdasdasd,dasdasdasd 大概是这个样子
 			.*[,]{1}Cookiename=([^,]+).*
 		 **/
-		re := regexp.MustCompile(`.*[;]{1} Cookiename=([^;]+).*`)
-		result := re.FindStringSubmatch(sessionID)
-		//匹配到结果，0是本身，1是匹配结果
-		if len(result) == 2 {
-			sessionID = result[1]
-			_, exist := sessionMgr.GetSessionVal(sessionID,"user")
-			if exist{
-				return sessionID,nil
-			}else{
-				return "",errors.New("not found user")
-			}
+		//不存在检验字段的时候
+		if len(sessionID) == 0 {
+			return sessionID,errors.New("no found sessionid")
+		}
+
+		if _, exist := sessionMgr.GetSessionVal(sessionID,"user");exist{
+			return sessionID,nil
 		}else{
-			return "",errors.New("not found cookie")
+			return sessionID,errors.New("is no login")
 		}
 	}
 	return "",errors.New("other case")
 }
 func index(w http.ResponseWriter, r *http.Request){
 
-	back := back.BackToken{
-
-	}
+	back := back.BackToken{}
 	sessionID := sessionMgr.StartSession(w,r)
 	sessionMgr.SetSessionVal(sessionID, "token", sessionMgr.NewToken())
 	token, _ := sessionMgr.GetSessionVal(sessionID,"token")
 	back.Token = token.(string)
 
 	w.Header().Set("Content-type","application/json")
+	w.Header().Add("Authentication",sessionID)
 	json, err := json.MarshalIndent(&back,"","\t")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -78,26 +72,14 @@ func login(w http.ResponseWriter, r *http.Request){
 			Password: r.FormValue("password"),
 		}
 		fmt.Println(user.Username," ",user.Password)
-		//获取cookiename的值
-		sessionID := r.Header.Get("Cookie")
+		//获取Authentication的值
+		sessionID := r.Header.Get("Authentication")
 
-		re := regexp.MustCompile(`.*[;]{1} Cookiename=([^;]+).*`)
-		result := re.FindStringSubmatch(sessionID)
-		if len(result) == 2 {
-			sessionID = result[1]
-		}else{
+		//如果不存在sessionid，则赋予新的sesionid，但结果肯定是不匹配
+		if len(sessionID) == 0 {
 			sessionID = sessionMgr.StartSession(w,r)
 		}
 
-
-		//fmt.Println("得到的session值:",sessionID)
-		//在数据库中得到对应数据
-
-		Db, err := dbs.GetConnect()
-		defer Db.Close()
-		if err != nil {
-			panic("error")
-		}
 
 		//对比token值
 		token, _ := sessionMgr.GetSessionVal(sessionID,"token")
@@ -108,6 +90,12 @@ func login(w http.ResponseWriter, r *http.Request){
 			return
 		}
 
+		//在数据库中得到对应数据
+		Db, err := dbs.GetConnect()
+		defer Db.Close()
+		if err != nil {
+			panic("error")
+		}
 		//登陆验证
 		err = user.FindUser(Db)
 
@@ -119,6 +107,7 @@ func login(w http.ResponseWriter, r *http.Request){
 			}
 			json, _ := json.MarshalIndent(&backinfo,"","\t")
 			w.Write(json)
+
 			//更新token
 			sessionMgr.SetSessionVal(sessionID,"token",sessionMgr.NewToken())
 			return
@@ -158,6 +147,12 @@ func test(w http.ResponseWriter,r *http.Request){
 	token, _ := sessionMgr.GetSessionVal(sessionID,"token")
 	t, _ := template.ParseFiles("login.html")
 	t.Execute(w,token)
+}
+func testLogin(w http.ResponseWriter, r *http.Request){
+	sessionID := sessionMgr.StartSession(w,r)
+	sessionMgr.SetSessionVal(sessionID,"token",sessionMgr.NewToken())
+	r.Header.Add("Authentication",sessionID)
+	login(w,r)
 }
 func getCourse(w http.ResponseWriter, r *http.Request){
 	data := back.CourseList{}
@@ -214,6 +209,7 @@ func main(){
 	http.HandleFunc("/se-token",index)
 	http.HandleFunc("/test",test)
 	http.HandleFunc("/se-course",getCourse)
+	http.HandleFunc("/testLogin",testLogin)
 	server.ListenAndServe()
 }
 
