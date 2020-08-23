@@ -20,7 +20,7 @@ func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 		return "",errors.New("method must is post")
 	}else if r.Method == "POST"{
 		//获取cookie里面的值
-		sessionID := r.Header.Get("Authentication")
+		sessionID := r.Header.Get("authentication")
 		//判断是否存在Cookiename
 		/**
 			dasdasd,Cookiename=asdasdasdasdasd,dasdasdasd 大概是这个样子
@@ -48,7 +48,7 @@ func index(w http.ResponseWriter, r *http.Request){
 	back.Token = token.(string)
 
 	w.Header().Set("Content-type","application/json")
-	w.Header().Add("Authentication",sessionID)
+	w.Header().Add("authentication",sessionID)
 	json, err := json.MarshalIndent(&back,"","\t")
 	if err != nil {
 		fmt.Println(err.Error())
@@ -73,7 +73,7 @@ func login(w http.ResponseWriter, r *http.Request){
 		}
 		fmt.Println(user.Username," ",user.Password)
 		//获取Authentication的值
-		sessionID := r.Header.Get("Authentication")
+		sessionID := r.Header.Get("authentication")
 
 		//如果不存在sessionid，则赋予新的sesionid，但结果肯定是不匹配
 		if len(sessionID) == 0 {
