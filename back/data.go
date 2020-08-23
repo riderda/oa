@@ -9,7 +9,12 @@ type BackInfo struct{
 	Sessionid string `json:"sessionid"`
 	Status string `json:"status"`
 }
-
+//查询数据库的信息
+type QueryInfo struct{
+	Length int `json:"length"`
+	PageNum int `json:"pagenum"`
+	Error string `json:"error"`
+}
 //查询返回的课程结构
 type Course struct{
 	Id int `json:"id"`
@@ -24,4 +29,9 @@ type CourseList struct{
 	List []Course `json:"list"`
 }
 
+//带查询信息的课程列表
+type CourseListLimit struct{
+	Info QueryInfo `json:"queryinfo"`
+	Courselist CourseList `json:"list"`
+}
 

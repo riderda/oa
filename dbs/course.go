@@ -37,3 +37,31 @@ func GetCourseListBy(courseType string,Db *sqlx.DB)([]DbCourse,error){
 	}
 	return list,nil
 }
+
+func GetCourseLimitBy(CourseType string,Limit int,Db *sqlx.DB)([]DbCourse,error){
+	list := make([]DbCourse,0)
+	rows, err := Db.Query("select * from course where type=? order by id limit ?,10",CourseType,Limit)
+	if err != nil {
+		return list, err
+	}
+
+	for rows.Next(){
+		dc := DbCourse{}
+		err = rows.Scan(&dc.Id,&dc.Type,&dc.Url,&dc.Title,&dc.Content)
+		if err != nil {
+			return list, err
+		}
+		list = append(list,dc)
+	}
+	return list,nil
+}
+
+func GetLengthOfCourse(CourseType string,Db *sqlx.DB)(int, error){
+	var length int
+	row := Db.QueryRow("select count(*) from course where type=?",CourseType)
+
+	if err := row.Scan(&length); err != nil{
+		return 0,err
+	}
+	return length,nil
+}
