@@ -206,23 +206,23 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	data := back.CourseListLimit{}
 	w.Header().Set("Content-Type","application/json")
 
-	//sessionID, err := checkLogin(w,r)
-	////如果没有登陆
-	//if err != nil{
-	//	info := back.QueryInfo{
-	//		Length: 0,
-	//		Error: "not login sessionID",
-	//		PageNum: 0,
-	//	}
-	//	data.Info = info
-	//	data.Courselist.LoginInfo = back.BackInfo{
-	//		Sessionid: sessionID,
-	//		Status: "fail",
-	//	}
-	//	json, _ := json.MarshalIndent(&data,"","\t")
-	//	w.Write(json)
-	//}
-	sessionID := ""
+	sessionID, err := checkLogin(w,r)
+	//如果没有登陆
+	if err != nil{
+		info := back.QueryInfo{
+			Length: 0,
+			Error: "not login sessionID",
+			PageNum: 0,
+		}
+		data.Info = info
+		data.Courselist.LoginInfo = back.BackInfo{
+			Sessionid: sessionID,
+			Status: "fail",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+	}
+
 
 	//解析请求
 	r.ParseForm()
