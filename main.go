@@ -221,6 +221,7 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 		}
 		json, _ := json.MarshalIndent(&data,"","\t")
 		w.Write(json)
+		return
 	}
 
 
@@ -290,8 +291,6 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	data.Info.PageNum = Limit
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
-
-
 }
 func main(){
 	sessionMgr = Helper.NewSessionMgr("Cookiename",3600)
