@@ -56,6 +56,8 @@ func GetCourseLimitBy(CourseType string,Limit int,Db *sqlx.DB)([]DbCourse,error)
 	return list,nil
 }
 
+//获取查询类型的文章的数量，但其实并没有太大必要
+//后来想想，还是有必要的，可以减少main的篇幅，尤其是对一些结构比较离谱进行长度计算时
 func GetLengthOfCourse(CourseType string,Db *sqlx.DB)(int, error){
 	var length int
 	row := Db.QueryRow("select count(*) from course where type=?",CourseType)

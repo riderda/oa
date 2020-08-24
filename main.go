@@ -11,10 +11,12 @@ import (
 	"oa/back"
 	"oa/dbs"
 	"strconv"
+	"sync"
 )
 
 var sessionMgr *Helper.SessionMgr = nil
 
+//登陆检查
 func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 
 	if r.Method == "GET"{
@@ -40,6 +42,8 @@ func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 	}
 	return "",errors.New("other case")
 }
+
+//获取token
 func index(w http.ResponseWriter, r *http.Request){
 
 	back := back.BackToken{}
@@ -58,6 +62,8 @@ func index(w http.ResponseWriter, r *http.Request){
 	w.Write(json)
 
 }
+
+//登陆检验
 func login(w http.ResponseWriter, r *http.Request){
 	if r.Method == "GET" {
 		w.WriteHeader(201)
@@ -142,6 +148,8 @@ func login(w http.ResponseWriter, r *http.Request){
 		w.Write(json)
 	}
 }
+
+
 func test(w http.ResponseWriter,r *http.Request){
 	sessionID := sessionMgr.StartSession(w,r)
 	sessionMgr.SetSessionVal(sessionID, "token", sessionMgr.NewToken())
@@ -202,51 +210,36 @@ func getCourse(w http.ResponseWriter, r *http.Request){
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
 }
+
+//获取文章
 func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	data := back.CourseListLimit{}
 	w.Header().Set("Content-Type","application/json")
 
-	//sessionID, err := checkLogin(w,r)
-	////如果没有登陆
-	//if err != nil{
-	//	info := back.QueryInfo{
-	//		Length: 0,
-	//		Error: "not login sessionID",
-	//		PageNum: 0,
-	//	}
-	//	data.Info = info
-	//	data.Courselist.LoginInfo = back.BackInfo{
-	//		Sessionid: sessionID,
-	//		Status: "fail",
-	//	}
-	//	json, _ := json.MarshalIndent(&data,"","\t")
-	//	w.Write(json)
-	//	return
-	//}
-	sessionID := ""
+	sessionID, err := checkLogin(w,r)
+	//如果没有登陆
+	if err != nil{
+		info := back.QueryInfo{
+			Length: 0,
+			Error: "not login sessionID",
+			PageNum: 0,
+		}
+		data.Info = info
+		data.Courselist.LoginInfo = back.BackInfo{
+			Sessionid: sessionID,
+			Status: "fail",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
+
 
 
 	//解析请求
 	r.ParseForm()
 	CourseType := r.FormValue("type")
 	TempLimit := r.FormValue("limit")
-
-	//数据库错误
-	Db, err := dbs.GetConnect()
-	if err != nil {
-		log.Println("database is error",err.Error())
-		w.WriteHeader(500)
-		return
-	}
-	defer Db.Close()
-
-	//查询错误（内部错误）
-	data.Info.Length,err = dbs.GetLengthOfCourse(CourseType,Db)
-	if err != nil {
-		log.Println("query is error",err.Error())
-		w.WriteHeader(500)
-		return
-	}
 
 	//请求的参数错误
 	Limit, err := strconv.Atoi(TempLimit)
@@ -279,9 +272,33 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 		return
 	}
 
+	//数据库错误
+	Db, err := dbs.GetConnect()
+	if err != nil {
+		log.Println("database is error",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer Db.Close()
+
+	//查询错误（内部错误）
+	data.Info.Length,err = dbs.GetLengthOfCourse(CourseType,Db)
+	if err != nil {
+		log.Println("query is error",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+
+
+
 	//能到这里就意味着，登陆了，数据库正常，请求参数正确
 	//开始查询数据
 	list, err := dbs.GetCourseLimitBy(CourseType,Limit,Db)
+	if err != nil{
+		log.Println("query is error",err.Error())
+		w.WriteHeader(500)
+		return
+	}
 	for _, course := range list{
 		temp := back.Course{}
 		temp.Id, temp.Type, temp.Url, temp.Title, temp.Content = course.Id, course.Type, course.Url, course.Title, course.Content
@@ -289,6 +306,100 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	}
 	data.Courselist.LoginInfo.Status = "success"
 	data.Courselist.LoginInfo.Sessionid = sessionID
+	data.Info.PageNum = Limit
+	json, _ := json.MarshalIndent(&data,"","\t")
+	w.Write(json)
+}
+
+//获取博客
+func getBlogLimit(w http.ResponseWriter, r *http.Request){
+	data := back.BlogListLimit{}
+	w.Header().Set("Content-Type","application/json")
+
+	//先检查登陆
+	//_, err := checkLogin(w,r)
+	////没有登陆
+	//if err != nil {
+	//	data.Info = back.QueryInfo{
+	//		Length: 0,
+	//		PageNum: 0,
+	//		Error: "not login sessionID",
+	//	}
+	//	json, _ := json.MarshalIndent(&data,"","\t")
+	//	w.Write(json)
+	//	return
+	//}
+
+	//解析请求参数
+	r.ParseForm()
+
+	Search := r.FormValue("search")
+	TempLimit := r.FormValue("limit")
+
+	//参数错误
+	if len(Search) == 0 {
+		data.Info = back.QueryInfo{
+			Length: 0,
+			PageNum: 0,
+			Error: "search is null",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
+	Limit,err := strconv.Atoi(TempLimit)
+	if err != nil{
+		data.Info = back.QueryInfo{
+			Length: 0,
+			PageNum: 0,
+			Error: "Limit is not number",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
+
+	//数据库
+	Db, err := dbs.GetConnect()
+	if err != nil {
+		log.Println("database is error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer Db.Close()
+
+	var wg sync.WaitGroup
+	data.BlogListByKeyword = make(map[string][]dbs.DbBlog)
+	//从搜索里获取关键词
+	ch := dbs.Seg.CutForSearch(Search,true)
+	for keyword := range ch{
+		fmt.Print(keyword+" ")
+		wg.Add(1)
+		//估计查询量比较大，使用并发查找
+		go func(){
+			//长度更新
+			defer wg.Done()
+			templength, err := dbs.GetLengthOfBlog(keyword,Db)
+			if err != nil{
+				log.Println("query is error",err.Error())
+				w.WriteHeader(500)
+				return
+			}
+			data.Info.Length += templength
+
+			//内容更新
+			Bloglist, err := dbs.GetBlogLimitBy(keyword,Limit,Db)
+			if err != nil{
+				log.Println("query is error",err.Error())
+				w.WriteHeader(500)
+				return
+			}
+			data.BlogListByKeyword[keyword] = Bloglist
+
+		}()
+	}
+	//只能阻塞，但不能影响write
+	wg.Wait()
 	data.Info.PageNum = Limit
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
@@ -304,6 +415,7 @@ func main(){
 	http.HandleFunc("/se-course",getCourse)
 	http.HandleFunc("/testLogin",testLogin)
 	http.HandleFunc("/se-course-limit",getCourseLimit)
+	http.HandleFunc("/se-blog-limit",getBlogLimit)
 	server.ListenAndServe()
 }
 

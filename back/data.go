@@ -1,5 +1,7 @@
 package back
 
+import "oa/dbs"
+
 //校验登陆的token
 type BackToken struct{
 	Token string `json:"token"`
@@ -35,3 +37,8 @@ type CourseListLimit struct{
 	Courselist CourseList `json:"infolist"`
 }
 
+//带查询信息的博客列表
+type BlogListLimit struct{
+	Info QueryInfo `json:"queryinfo"`
+	BlogListByKeyword map[string][]dbs.DbBlog `json:"bloglist"`
+}
