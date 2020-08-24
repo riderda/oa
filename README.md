@@ -56,15 +56,22 @@
         "PageNum" : "x", //当前页面
         "error": "" //错误信息
   },
-  "list": [
-      {
-        "id": "",
-        "type" : "",
-        "url" : "",
-        "title" : "",
-        "content" : ""
-      }
-      ...
-  ]
+  "infolist" : {
+      "userinfo": {
+              "sesionid": "XXXXXXXXXXXXX",
+              "status": "success/fail"
+        },
+        "list": [
+            {
+              "id": "",
+              "type" : "",
+              "url" : "",
+              "title" : "",
+              "content" : ""
+            }
+            ...
+        ]
+   }
+   
 }
 ```

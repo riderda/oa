@@ -32,6 +32,6 @@ type CourseList struct{
 //带查询信息的课程列表
 type CourseListLimit struct{
 	Info QueryInfo `json:"queryinfo"`
-	Courselist CourseList `json:"list"`
+	Courselist CourseList `json:"infolist"`
 }
 
