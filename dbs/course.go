@@ -40,7 +40,7 @@ func GetCourseListBy(courseType string,Db *sqlx.DB)([]DbCourse,error){
 
 func GetCourseLimitBy(CourseType string,Limit int,Db *sqlx.DB)([]DbCourse,error){
 	list := make([]DbCourse,0)
-	rows, err := Db.Query("select * from course where type=? order by id limit ?,10",CourseType,Limit)
+	rows, err := Db.Query("select * from course where type=? order by id limit ?,10",CourseType,Limit*10)
 	if err != nil {
 		return list, err
 	}
