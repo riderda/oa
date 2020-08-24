@@ -317,18 +317,18 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	w.Header().Set("Content-Type","application/json")
 
 	//先检查登陆
-	//_, err := checkLogin(w,r)
-	////没有登陆
-	//if err != nil {
-	//	data.Info = back.QueryInfo{
-	//		Length: 0,
-	//		PageNum: 0,
-	//		Error: "not login sessionID",
-	//	}
-	//	json, _ := json.MarshalIndent(&data,"","\t")
-	//	w.Write(json)
-	//	return
-	//}
+	_, err := checkLogin(w,r)
+	//没有登陆
+	if err != nil {
+		data.Info = back.QueryInfo{
+			Length: 0,
+			PageNum: 0,
+			Error: "not login sessionID",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
 
 	//解析请求参数
 	r.ParseForm()
