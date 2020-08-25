@@ -10,10 +10,12 @@ type DbBlog struct{
 	Keyword string `db:"keyword"`
 	Title string `db:"title"`
 	Content string `db:"content"`
+	Summary string `db:"summary"`
 	Author string `db:"author"`
 	Record int `db:"record"`
 	PublicStatus string `db:"public status"`
 	PublicTime time.Time `db:"public time"`
+	IsShow string `db:"is show"`
 }
 
 //结巴分词器对象
@@ -24,7 +26,7 @@ func init(){
 
 func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 	list := make([]DbBlog,0)
-	rows, err := Db.Query("select * from blog where title like ? limit ?,10","%"+Keyword+"%",Limit*10)
+	rows, err := Db.Query("select * from blog where title like ? and `public status`='release' limit ?,10 ","%"+Keyword+"%",Limit*10)
 	if err != nil {
 		return list,err
 	}
@@ -32,7 +34,7 @@ func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 		db := DbBlog{}
 		//时间需要处理一下，先保存为string，然后再转time
 		var datetime string
-		err = rows.Scan(&db.Id,&db.Keyword,&db.Title,&db.Content,&db.Author,&db.Record,&db.PublicStatus,&datetime)
+		err = rows.Scan(&db.Id,&db.Keyword,&db.Title,&db.Content,&db.Summary,&db.Author,&db.Record,&db.PublicStatus,&datetime,&db.IsShow)
 		db.PublicTime, _ = time.Parse("2006-01-02 15:04:05", datetime)
 		if err != nil{
 			return list,err

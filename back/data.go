@@ -1,6 +1,8 @@
 package back
 
-import "oa/dbs"
+import (
+	"time"
+)
 
 //校验登陆的token
 type BackToken struct{
@@ -25,6 +27,19 @@ type Course struct{
 	Title string `json:"title"`
 	Content string `json:"content"`
 }
+//查询返回的博客结构
+type Blog struct{
+	Id int `json:"id"`
+	Keyword string `json:"keyword"`
+	Title string `json:"title"`
+	Content string `json:"content"`
+	Summary string `json:"summary"`
+	Author string `json:"author"`
+	Record int `json:"record"`
+	PublicStatus string `json:"public status"`
+	PublicTime time.Time `json:"public time"`
+	IsShow string `json:"isshow"`
+}
 //集合课程的列表
 type CourseList struct{
 	LoginInfo BackInfo `json:"logininfo"`
@@ -40,5 +55,11 @@ type CourseListLimit struct{
 //带查询信息的博客列表
 type BlogListLimit struct{
 	Info QueryInfo `json:"queryinfo"`
-	BlogListByKeyword map[string][]dbs.DbBlog `json:"bloglist"`
+	BlogListByKeyword map[string][]Blog `json:"bloglist"`
+}
+
+//图片上传后返回的url
+type ImageUrl struct{
+	Url string `json:"url"`
+	Status string `json:"status"`
 }

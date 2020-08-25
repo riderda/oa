@@ -4,14 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	uuid "github.com/satori/go.uuid"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"oa/Helper"
 	"oa/back"
 	"oa/dbs"
+	"os"
+	"regexp"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var sessionMgr *Helper.SessionMgr = nil
@@ -149,68 +154,6 @@ func login(w http.ResponseWriter, r *http.Request){
 	}
 }
 
-
-func test(w http.ResponseWriter,r *http.Request){
-	sessionID := sessionMgr.StartSession(w,r)
-	sessionMgr.SetSessionVal(sessionID, "token", sessionMgr.NewToken())
-	token, _ := sessionMgr.GetSessionVal(sessionID,"token")
-	t, _ := template.ParseFiles("login.html")
-	t.Execute(w,token)
-}
-func testLogin(w http.ResponseWriter, r *http.Request){
-	sessionID := sessionMgr.StartSession(w,r)
-	sessionMgr.SetSessionVal(sessionID,"token",sessionMgr.NewToken())
-	r.Header.Add("Authentication",sessionID)
-	login(w,r)
-}
-func getCourse(w http.ResponseWriter, r *http.Request){
-	data := back.CourseList{}
-	w.Header().Set("Content-Type","application/json")
-
-	//先校验登陆状态
-	sessionID,err := checkLogin(w,r)
-	if err != nil {
-		back := back.BackInfo{
-			Sessionid: sessionID,
-			Status: "fail",
-		}
-		data.LoginInfo = back
-		json,_ := json.MarshalIndent(&data,"","\t")
-		w.Write(json)
-		return
-	}
-
-	//解析请求并返回数据
-	r.ParseForm()
-	courseType := r.FormValue("type")
-	Db, err := dbs.GetConnect()
-	//打印错误日志
-	if err != nil {
-		log.Println("database is error",err.Error())
-		w.WriteHeader(500)
-		return
-	}
-	defer Db.Close()
-
-	//打印错误原因
-	list,err :=dbs.GetCourseListBy(courseType,Db)
-	if err != nil {
-		log.Println("query err:",err.Error(),"query type is : ",courseType)
-		w.WriteHeader(500)
-		return
-	}
-	//写入数据
-	for _,course := range list{
-		temp := back.Course{}
-		temp.Id, temp.Type, temp.Url, temp.Title, temp.Content = course.Id, course.Type, course.Url, course.Title, course.Content
-		data.List = append(data.List,temp)
-	}
-	data.LoginInfo.Status = "success"
-	data.LoginInfo.Sessionid = sessionID
-	json, _ := json.MarshalIndent(&data,"","\t")
-	w.Write(json)
-}
-
 //获取文章
 func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	data := back.CourseListLimit{}
@@ -233,6 +176,7 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 		w.Write(json)
 		return
 	}
+
 
 
 
@@ -317,18 +261,18 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	w.Header().Set("Content-Type","application/json")
 
 	//先检查登陆
-	_, err := checkLogin(w,r)
-	//没有登陆
-	if err != nil {
-		data.Info = back.QueryInfo{
-			Length: 0,
-			PageNum: 0,
-			Error: "not login sessionID",
-		}
-		json, _ := json.MarshalIndent(&data,"","\t")
-		w.Write(json)
-		return
-	}
+	//_, err := checkLogin(w,r)
+	////没有登陆
+	//if err != nil {
+	//	data.Info = back.QueryInfo{
+	//		Length: 0,
+	//		PageNum: 0,
+	//		Error: "not login sessionID",
+	//	}
+	//	json, _ := json.MarshalIndent(&data,"","\t")
+	//	w.Write(json)
+	//	return
+	//}
 
 	//解析请求参数
 	r.ParseForm()
@@ -369,12 +313,12 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	defer Db.Close()
 
 	var wg sync.WaitGroup
-	data.BlogListByKeyword = make(map[string][]dbs.DbBlog)
+	data.BlogListByKeyword = make(map[string][]back.Blog)
 	//从搜索里获取关键词
 	ch := dbs.Seg.CutForSearch(Search,true)
 	for keyword := range ch{
 		fmt.Print(keyword+" ")
-		wg.Add(1)
+		wg.Add(2)
 		//估计查询量比较大，使用并发查找
 		go func(){
 			//长度更新
@@ -386,16 +330,34 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 				return
 			}
 			data.Info.Length += templength
+		}()
 
+		go func(){
 			//内容更新
-			Bloglist, err := dbs.GetBlogLimitBy(keyword,Limit,Db)
+			defer wg.Done()
+			dbBlogList, err := dbs.GetBlogLimitBy(keyword,Limit,Db)
 			if err != nil{
 				log.Println("query is error",err.Error())
 				w.WriteHeader(500)
 				return
 			}
-			data.BlogListByKeyword[keyword] = Bloglist
-
+			blogList := make([]back.Blog,0)
+			for _, blog := range dbBlogList{
+				temp := back.Blog{
+					Id: blog.Id,
+					Keyword: blog.Keyword,
+					Title: blog.Title,
+					Content: blog.Content,
+					Summary: blog.Summary,
+					Author: blog.Author,
+					Record: blog.Record,
+					PublicStatus: blog.PublicStatus,
+					PublicTime: blog.PublicTime,
+					IsShow: blog.IsShow,
+				}
+				blogList = append(blogList,temp)
+			}
+			data.BlogListByKeyword[keyword] = blogList
 		}()
 	}
 	//只能阻塞，但不能影响write
@@ -404,6 +366,127 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
 }
+
+//上传图片
+func uploadImage(w http.ResponseWriter, r *http.Request){
+	w.Header().Set("Content-Type","application/json")
+
+	//登陆检测
+	_, err := checkLogin(w,r)
+	if err != nil{
+		data := back.ImageUrl{
+			Status: "not login sessionID",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
+
+
+	//解析请求
+	file,fileHeader,err := r.FormFile("image")
+	if err != nil{
+		log.Println("upload happen error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer file.Close()
+
+	//数据库连接
+	Db, err := dbs.GetConnect()
+	if err != nil {
+		log.Println("database is error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer Db.Close()
+
+	/**应该多步进行文件校验
+	1、文件后缀名判断（这个很蠢，但还是需要）
+	2、文件类型判断（从请求里可以获取，但是可能被篡改）
+	3、重新渲染，文件名和文件名后缀由服务器来决定
+	**/
+
+	//1、后缀名获取并判断
+	//白名单
+
+	followExt := []string{"jpg","png","jpeg"}
+	reg := regexp.MustCompile(`.*[\.]{1}([^\.]+)`)
+
+	ext := reg.FindStringSubmatch(fileHeader.Filename)
+	if len(ext) != 2{
+		log.Println("ext is error ", ext)
+		w.WriteHeader(500)
+		return
+	}
+	//后缀名为ext[1]
+	in_follow := false
+	for _, follow := range followExt{
+		if follow == ext[1]{
+			in_follow = true
+		}
+	}
+	if in_follow == false {
+		log.Println("ext is error ", ext)
+		w.WriteHeader(500)
+		return
+	}
+
+	//2、文件类型判断，从content-type里获取
+	contentType := fileHeader.Header["Content-Type"][0]
+	if contentType != "image/jpg" && contentType != "image/png" && contentType != "image/jpeg"{
+		log.Println("contentType is error ", contentType)
+		w.WriteHeader(500)
+		return
+	}
+
+	//3、重新渲染图片
+	//检查路径是否存在，没有则创建
+	_,err = os.Stat("./upload/image/")
+	if err != nil {
+		os.MkdirAll("./upload/image",os.ModePerm)
+	}
+
+	//重新生成文件名
+	uname := uuid.Must(uuid.NewV4())
+	f, err := os.OpenFile("./upload/image/"+uname.String()+"."+ext[1],os.O_WRONLY|os.O_CREATE,0666)
+	if err != nil{
+		fmt.Println(err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer f.Close()
+	io.Copy(f,file)
+
+	//数据库操作
+	image := dbs.DbImage{
+		Name: fileHeader.Filename,
+		UploadTime: time.Now(),
+		Path: "/upload/image/"+uname.String()+"."+ext[1],
+		UploadAuthor: "",
+	}
+
+	_, err = image.Insert(Db)
+	if err != nil{
+		log.Println("insert error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+
+	//返回上传图片的url
+	data := back.ImageUrl{
+		Url: "/static/"+uname.String()+"."+ext[1],
+		Status: "OK",
+	}
+	json, _ := json.MarshalIndent(&data,"","\t")
+	w.Write(json)
+}
+
+//测试用
+func uploadtest(w http.ResponseWriter, r *http.Request){
+	t,_ := template.ParseFiles("upload.html")
+	t.Execute(w,nil)
+}
 func main(){
 	sessionMgr = Helper.NewSessionMgr("Cookiename",3600)
 	server := http.Server{
@@ -411,11 +494,14 @@ func main(){
 	}
 	http.HandleFunc("/se-login",login)
 	http.HandleFunc("/se-token",index)
-	http.HandleFunc("/test",test)
-	http.HandleFunc("/se-course",getCourse)
-	http.HandleFunc("/testLogin",testLogin)
-	http.HandleFunc("/se-course-limit",getCourseLimit)
-	http.HandleFunc("/se-blog-limit",getBlogLimit)
+	http.HandleFunc("/se-course",getCourseLimit)
+	http.HandleFunc("/se-blog",getBlogLimit)
+	http.HandleFunc("/se-upload",uploadImage)
+
+	//http.HandleFunc("/test",uploadtest)
+	images := http.FileServer(http.Dir("./upload/image/"))
+	http.Handle("/static/",http.StripPrefix("/static/",images))
+
 	server.ListenAndServe()
 }
 
