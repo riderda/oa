@@ -117,3 +117,35 @@
 > 需要注意的是：返回的url格式汝下
 >
 > /static/0e3c4adb-b74d-496b-9f21-0557c1e89777.png
+
+
+
+> **/se-blog-exec**
+>
+> **用于新增博客或者修改博客**
+>
+> 请求头里需要authentication字段，作为代替cookie，将从 **/se-token**获取的sessionid作为值
+>
+> 用**post**方法发送请求，请求主体为json数据，要求格式如下
+
+```json
+{
+    "id":,//文章id，如果是新建则不需要
+    "keyword":,//关键词，各个关键词之间用 ; 分开
+    "title":,
+    "content":,
+    "status":,//决定文章是处于发布状态或者草稿状态，发布状态为 release
+    "command": "add/update" //控制操作
+}
+```
+
+> 返回的数据如下
+
+```json
+{
+    "status":"not login sessionID/OK",
+}
+```
+
+
+

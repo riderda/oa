@@ -34,3 +34,5 @@ func (u *User)FindUser(Db *sqlx.DB)(error){
 	return nil
 }
 
+
+

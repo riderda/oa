@@ -4,6 +4,7 @@ import (
 	"time"
 )
 
+
 //校验登陆的token
 type BackToken struct{
 	Token string `json:"token"`
@@ -61,5 +62,10 @@ type BlogListLimit struct{
 //图片上传后返回的url
 type ImageUrl struct{
 	Url string `json:"url"`
+	Status string `json:"status"`
+}
+
+//博客增改删通用返回数据
+type Normal struct{
 	Status string `json:"status"`
 }

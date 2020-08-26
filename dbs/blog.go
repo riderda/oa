@@ -24,6 +24,8 @@ func init(){
 	Seg.LoadDictionary("dict.txt")
 }
 
+//分页获取博客
+//需要将返回的数据里的content删除。下个版本更新
 func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 	list := make([]DbBlog,0)
 	rows, err := Db.Query("select * from blog where title like ? and `public status`='release' limit ?,10 ","%"+Keyword+"%",Limit*10)
@@ -44,6 +46,7 @@ func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 	return list,nil
 }
 
+//返回搜索的博客的总量
 func GetLengthOfBlog(Keyword string,Db *sqlx.DB)(int, error){
 	var length int
 	row := Db.QueryRow("select count(*) from blog where title like ?","%"+Keyword+"%")
@@ -52,4 +55,32 @@ func GetLengthOfBlog(Keyword string,Db *sqlx.DB)(int, error){
 		return 0,err
 	}
 	return length,nil
+}
+
+func (db *DbBlog)AddBlog(Db *sqlx.DB)(int64,error){
+	publicTime := db.PublicTime.Format("2006-01-02 15:04:05")
+	result, err :=Db.Exec("insert into blog(keyword,title,content,summary,author,record,`public status`,`public time`) values(?,?,?,?,?,?,?,?)",
+		db.Keyword,db.Title,db.Content,db.Summary,db.Author,db.Record,db.PublicStatus,publicTime)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0,err
+	}
+	return affected,nil
+}
+
+func (db *DbBlog)UpdateBlog(Db *sqlx.DB)(int64,error){
+	publicTime := db.PublicTime.Format("2006-01-02 15:04:05")
+	result, err := Db.Exec("update blog set keyword=?, title=?, content=?, summary=?, author=?, `public status`=?, `public time`=? where id=?",
+		db.Keyword,db.Title,db.Content,db.Summary,db.Author,db.PublicStatus,publicTime,db.Id)
+	if err != nil {
+		return 0, err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0,err
+	}
+	return affected,nil
 }
