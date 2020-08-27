@@ -571,20 +571,20 @@ func execBlog(w http.ResponseWriter, r *http.Request){
 			w.WriteHeader(500)
 			return
 		}
-
+		data.BlogId = blogId
 	}else{
 		//修改博客操作
 		db.Id = forward.Id
-		blogId, err = db.UpdateBlog(Db)
+		_, err = db.UpdateBlog(Db)
 		if err != nil {
 			log.Println("update error ",err.Error())
 			w.WriteHeader(500)
 			return
 		}
-
+		data.BlogId = int64(db.Id)
 	}
 	data.Status = "OK"
-	data.BlogId = blogId
+
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
 }
