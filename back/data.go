@@ -56,7 +56,8 @@ type CourseListLimit struct{
 //带查询信息的博客列表
 type BlogListLimit struct{
 	Info QueryInfo `json:"queryinfo"`
-	BlogListByKeyword map[string][]Blog `json:"bloglist"`
+	Keyword string `json:keyword`
+	BlogListByKeyword []Blog `json:"bloglist"`
 }
 
 //图片上传后返回的url

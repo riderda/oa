@@ -430,11 +430,11 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	defer Db.Close()
 
 	var wg sync.WaitGroup
-	data.BlogListByKeyword = make(map[string][]back.Blog)
+	data.BlogListByKeyword = make([]back.Blog,0)
 	//从搜索里获取关键词
 	ch := dbs.Seg.CutForSearch(Search,true)
 	for keyword := range ch{
-		fmt.Print(keyword+" ")
+		data.Keyword += keyword+";"
 		wg.Add(2)
 		//估计查询量比较大，使用并发查找
 		go func(){
@@ -458,7 +458,7 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 				w.WriteHeader(500)
 				return
 			}
-			blogList := make([]back.Blog,0)
+
 			for _, blog := range dbBlogList{
 				temp := back.Blog{
 					Id: blog.Id,
@@ -472,9 +472,9 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 					PublicTime: blog.PublicTime,
 					IsShow: blog.IsShow,
 				}
-				blogList = append(blogList,temp)
+				data.BlogListByKeyword = append(data.BlogListByKeyword,temp)
 			}
-			data.BlogListByKeyword[keyword] = blogList
+
 		}()
 	}
 	//只能阻塞，但不能影响write
