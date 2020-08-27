@@ -49,7 +49,7 @@ func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 //返回搜索的博客的总量
 func GetLengthOfBlog(Keyword string,Db *sqlx.DB)(int, error){
 	var length int
-	row := Db.QueryRow("select count(*) from blog where title like ?","%"+Keyword+"%")
+	row := Db.QueryRow("select count(*) from blog where title like ? and `public status`='release'","%"+Keyword+"%")
 	err := row.Scan(&length)
 	if err != nil {
 		return 0,err
