@@ -64,11 +64,11 @@ func (db *DbBlog)AddBlog(Db *sqlx.DB)(int64,error){
 	if err != nil {
 		return 0, err
 	}
-	affected, err := result.RowsAffected()
+	lastInsertId, err := result.LastInsertId()
 	if err != nil {
 		return 0,err
 	}
-	return affected,nil
+	return lastInsertId,nil
 }
 
 func (db *DbBlog)UpdateBlog(Db *sqlx.DB)(int64,error){
@@ -78,9 +78,9 @@ func (db *DbBlog)UpdateBlog(Db *sqlx.DB)(int64,error){
 	if err != nil {
 		return 0, err
 	}
-	affected, err := result.RowsAffected()
+	lastInsetId, err := result.LastInsertId()
 	if err != nil {
 		return 0,err
 	}
-	return affected,nil
+	return lastInsetId,nil
 }

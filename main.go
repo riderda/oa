@@ -560,28 +560,31 @@ func execBlog(w http.ResponseWriter, r *http.Request){
 		db.Summary = db.Content
 	}
 
+	//返回id值
+	var blogId int64
 	//判断是新增还是修改
 	if forward.Command == "add" {
 		//写入数据库
-		affected, err := db.AddBlog(Db)
+		blogId, err = db.AddBlog(Db)
 		if err != nil {
 			log.Println("insert error ",err.Error())
 			w.WriteHeader(500)
 			return
 		}
-		log.Println("insert ",affected," row blog'data")
+
 	}else{
 		//修改博客操作
 		db.Id = forward.Id
-		affected, err := db.UpdateBlog(Db)
+		blogId, err = db.UpdateBlog(Db)
 		if err != nil {
 			log.Println("update error ",err.Error())
 			w.WriteHeader(500)
 			return
 		}
-		log.Println("update ",affected," row blog'data")
+
 	}
 	data.Status = "OK"
+	data.BlogId = blogId
 	json, _ := json.MarshalIndent(&data,"","\t")
 	w.Write(json)
 }
