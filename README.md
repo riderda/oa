@@ -84,7 +84,7 @@
             	"id":,
             	"keyword":,
             	"title":,
-            	"content":,
+            	"content":,//这个字段为空
             	"author":,
             	"record":,
             	"publicstatus":,

@@ -28,7 +28,7 @@ func init(){
 //需要将返回的数据里的content删除。下个版本更新
 func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 	list := make([]DbBlog,0)
-	rows, err := Db.Query("select * from blog where title like ? and `public status`='release' limit ?,10 ","%"+Keyword+"%",Limit*10)
+	rows, err := Db.Query("select id,keyword,title,summary,author,record,`public status`,`public time` from blog where title like ? and `public status`='release' limit ?,10 ","%"+Keyword+"%",Limit*10)
 	if err != nil {
 		return list,err
 	}
@@ -36,7 +36,7 @@ func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 		db := DbBlog{}
 		//时间需要处理一下，先保存为string，然后再转time
 		var datetime string
-		err = rows.Scan(&db.Id,&db.Keyword,&db.Title,&db.Content,&db.Summary,&db.Author,&db.Record,&db.PublicStatus,&datetime,&db.IsShow)
+		err = rows.Scan(&db.Id,&db.Keyword,&db.Title,&db.Summary,&db.Author,&db.Record,&db.PublicStatus,&datetime)
 		db.PublicTime, _ = time.Parse("2006-01-02 15:04:05", datetime)
 		if err != nil{
 			return list,err

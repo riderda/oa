@@ -372,7 +372,7 @@ func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	w.Write(json)
 }
 
-//获取博客
+//搜索博客
 func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	data := back.BlogListLimit{}
 	w.Header().Set("Content-Type","application/json")
