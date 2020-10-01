@@ -26,6 +26,7 @@ func init(){
 
 //分页获取博客
 //需要将返回的数据里的content删除。下个版本更新
+//已更新 2020-10-01
 func GetBlogLimitBy(Keyword string, Limit int, Db *sqlx.DB)([]DbBlog, error){
 	list := make([]DbBlog,0)
 	rows, err := Db.Query("select id,keyword,title,summary,author,record,`public status`,`public time` from blog where title like ? and `public status`='release' limit ?,10 ","%"+Keyword+"%",Limit*10)
@@ -57,6 +58,7 @@ func GetLengthOfBlog(Keyword string,Db *sqlx.DB)(int, error){
 	return length,nil
 }
 
+//添加文章
 func (db *DbBlog)AddBlog(Db *sqlx.DB)(int64,error){
 	publicTime := db.PublicTime.Format("2006-01-02 15:04:05")
 	result, err :=Db.Exec("insert into blog(keyword,title,content,summary,author,record,`public status`,`public time`) values(?,?,?,?,?,?,?,?)",
@@ -71,6 +73,7 @@ func (db *DbBlog)AddBlog(Db *sqlx.DB)(int64,error){
 	return lastInsertId,nil
 }
 
+//更新文章
 func (db *DbBlog)UpdateBlog(Db *sqlx.DB)(int64,error){
 	publicTime := db.PublicTime.Format("2006-01-02 15:04:05")
 	result, err := Db.Exec("update blog set keyword=?, title=?, content=?, summary=?, author=?, `public status`=?, `public time`=? where id=?",
@@ -83,4 +86,16 @@ func (db *DbBlog)UpdateBlog(Db *sqlx.DB)(int64,error){
 		return 0,err
 	}
 	return lastInsetId,nil
+}
+
+func (db *DbBlog)SearchBlog(Db *sqlx.DB)(error){
+	var datetime string
+	row := Db.QueryRow("select keyword,title,content,summary,author,record,`public status`,`public time` from blog where id=? and `public status`='release'",db.Id)
+	//row := Db.QueryRow("select keyword,title,content,summary,author,record,`public status` from blog where id=? and `public status`='release'",db.Id)
+	err := row.Scan(&db.Keyword,&db.Title,&db.Content,&db.Summary,&db.Author,&db.Record,&db.PublicStatus,&datetime)
+	db.PublicTime, _ = time.Parse("2006-01-02 15:04:05", datetime)
+	if err != nil{
+		return err
+	}
+	return nil
 }

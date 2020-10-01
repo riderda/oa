@@ -23,7 +23,7 @@ import (
 
 var sessionMgr *Helper.SessionMgr = nil
 
-//登陆检查
+//登陆状态检查
 func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 
 	if r.Method == "GET"{
@@ -50,6 +50,16 @@ func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 	return "",errors.New("other case")
 }
 
+//删除sesionid（登出）
+func logout(w http.ResponseWriter, r *http.Request){
+	sessionID, err := checkLogin(w,r)
+	if err != nil{
+		w.WriteHeader(500)
+		return
+	}
+	sessionMgr.EndSessionBy(sessionID)
+}
+
 //获取token
 func index(w http.ResponseWriter, r *http.Request){
 
@@ -73,7 +83,7 @@ func index(w http.ResponseWriter, r *http.Request){
 //登陆检验
 func login(w http.ResponseWriter, r *http.Request){
 	if r.Method == "GET" {
-		w.WriteHeader(201)
+		w.WriteHeader(500)
 		return
 	} else if r.Method == "POST" {
 		//请求的是登陆数据，那么执行登陆的逻辑判断
@@ -380,6 +390,7 @@ func getBlogLimit(w http.ResponseWriter, r *http.Request){
 	//先检查登陆
 	_, err := checkLogin(w,r)
 	//没有登陆
+
 	if err != nil {
 		data.Info = back.QueryInfo{
 			Length: 0,
@@ -591,7 +602,52 @@ func execBlog(w http.ResponseWriter, r *http.Request){
 
 //博客的删除
 //博客的单篇查找
+func getBlogById(w http.ResponseWriter, r * http.Request){
+	//先检查登陆
+	_, err := checkLogin(w,r)
+	if err != nil{
+		w.WriteHeader(500)
+		return
+	}
 
+	//解析参数
+	blogId,err := strconv.Atoi(r.FormValue("id"))
+	if err != nil{
+		w.WriteHeader(500)
+		return
+	}
+
+	//数据库连接
+	Db, err := dbs.GetConnect()
+	defer Db.Close()
+	if err != nil{
+		log.Println("database is error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+
+
+	article := &dbs.DbBlog{
+		Id: blogId,
+	}
+	err = article.SearchBlog(Db)
+	if err != nil{
+		log.Println("search blog is err ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	json, _ := json.MarshalIndent(article,"","\t")
+	w.Write(json)
+
+}
+//文件下载
+//这是个绝活
+func downloadHandler(w http.ResponseWriter, r *http.Request){
+	name := r.FormValue("name")
+	w.Header().Add("Content-Type","application/octet-stream")
+	w.Header().Add("Content-Disposition","attachment; filename=\""+name+"\"")
+	http.ServeFile(w,r,"test/"+name)
+}
 //测试用
 func uploadtest(w http.ResponseWriter, r *http.Request){
 	t,_ := template.ParseFiles("upload.html")
@@ -609,8 +665,13 @@ func main(){
 	http.HandleFunc("/se-upload",uploadImage)
 	http.HandleFunc("/se-blog-exec",execBlog)
 	//http.HandleFunc("/test",uploadtest)
+	http.HandleFunc("/se-download",downloadHandler)
+	http.HandleFunc("/se-article",getBlogById)
+	http.HandleFunc("/se-logout",logout)
 	images := http.FileServer(http.Dir("./upload/image/"))
+	
 	http.Handle("/static/",http.StripPrefix("/static/",images))
+
 
 	server.ListenAndServe()
 }
