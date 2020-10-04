@@ -50,6 +50,89 @@ func checkLogin(w http.ResponseWriter, r *http.Request)(string,error){
 	return "",errors.New("other case")
 }
 
+//上传文件封面方法
+func uploadCover(w http.ResponseWriter, r *http.Request,userId int)(string,error){
+
+	//解析请求
+	file,fileHeader,err := r.FormFile("cover")
+	if err != nil{
+		return "",err
+	}
+	defer file.Close()
+
+	//如果图片大小超过10MB
+	if float64(fileHeader.Size)/1000000 > 10 {
+		return "",errors.New("this image is so big")
+	}
+	//数据库连接
+	Db, err := dbs.GetConnect()
+	if err != nil {
+		return "",err
+	}
+	defer Db.Close()
+
+	//1、后缀名获取并判断
+	//白名单
+
+	followExt := []string{"jpg","png","jpeg"}
+	reg := regexp.MustCompile(`.*[\.]{1}([^\.]+)`)
+
+	ext := reg.FindStringSubmatch(fileHeader.Filename)
+	if len(ext) != 2{
+		return "",errors.New("not match the file ext")
+	}
+	//后缀名为ext[1]
+	in_follow := false
+	for _, follow := range followExt{
+		if follow == ext[1]{
+			in_follow = true
+		}
+	}
+	if in_follow == false {
+		return "",errors.New("ext is error")
+	}
+
+	//2、文件类型判断，从content-type里获取
+	contentType := fileHeader.Header["Content-Type"][0]
+	if contentType != "image/jpg" && contentType != "image/png" && contentType != "image/jpeg"{
+		return "",errors.New("ext is error")
+	}
+
+	//3、重新渲染图片
+	//检查路径是否存在，没有则创建
+	_,err = os.Stat("./upload/image/")
+	if err != nil {
+		os.MkdirAll("./upload/image",os.ModePerm)
+	}
+
+	//重新生成文件名
+	uname := uuid.Must(uuid.NewV4())
+	imageName := uname.String()+"."+ext[1]
+	f, err := os.OpenFile("./upload/image/"+imageName,os.O_WRONLY|os.O_CREATE,0666)
+	if err != nil{
+		return "",err
+	}
+	defer f.Close()
+	io.Copy(f,file)
+
+	fullName, err := dbs.GetFullName(userId,Db)
+	if err != nil{
+		return "",err
+	}
+	//数据库操作
+	image := dbs.DbImage{
+		Name: fileHeader.Filename,
+		UploadTime: time.Now(),
+		Path: "/upload/image/"+imageName,
+		UploadAuthor: fullName,
+	}
+
+	_, err = image.Insert(Db)
+	if err != nil{
+		return "",err
+	}
+	return imageName,nil
+}
 //删除sesionid（登出）
 func logout(w http.ResponseWriter, r *http.Request){
 	sessionID, err := checkLogin(w,r)
@@ -171,7 +254,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request){
 	w.Header().Set("Content-Type","application/json")
 
 	//登陆检测
-	_, err := checkLogin(w,r)
+	sessionId, err := checkLogin(w,r)
 	if err != nil{
 		data := back.ImageUrl{
 			Status: "not login sessionID",
@@ -191,6 +274,15 @@ func uploadImage(w http.ResponseWriter, r *http.Request){
 	}
 	defer file.Close()
 
+	//如果图片大小超过10MB
+	if float64(fileHeader.Size)/1000000 > 10 {
+		data := back.ImageUrl{
+			Status: "this image is so big",
+		}
+		json, _ := json.MarshalIndent(&data,"","\t")
+		w.Write(json)
+		return
+	}
 	//数据库连接
 	Db, err := dbs.GetConnect()
 	if err != nil {
@@ -226,7 +318,7 @@ func uploadImage(w http.ResponseWriter, r *http.Request){
 		}
 	}
 	if in_follow == false {
-		log.Println("ext is error ", ext)
+		log.Println("ext is error ", ext[0])
 		w.WriteHeader(500)
 		return
 	}
@@ -258,11 +350,13 @@ func uploadImage(w http.ResponseWriter, r *http.Request){
 	io.Copy(f,file)
 
 	//数据库操作
+	user,_ := sessionMgr.GetSessionVal(sessionId,"user")
+	fullName,err := dbs.GetFullName(user.(dbs.User).Id,Db)
 	image := dbs.DbImage{
 		Name: fileHeader.Filename,
 		UploadTime: time.Now(),
 		Path: "/upload/image/"+uname.String()+"."+ext[1],
-		UploadAuthor: "",
+		UploadAuthor: fullName,
 	}
 
 	_, err = image.Insert(Db)
@@ -281,6 +375,132 @@ func uploadImage(w http.ResponseWriter, r *http.Request){
 	w.Write(json)
 }
 
+//上传文件和封面
+func uploadFile(w http.ResponseWriter, r *http.Request){
+	w.Header().Set("Content-Type","application/json")
+	//登陆状态检测
+	sessionId, err := checkLogin(w,r)
+	if err != nil{
+		data := &back.BackInfo{
+			Sessionid: sessionId,
+			Status: "not login sessionID",
+		}
+		json, _ := json.MarshalIndent(data,"","\t")
+		w.Write(json)
+		return
+	}
+
+	//先处理封面
+	user,_ := sessionMgr.GetSessionVal(sessionId,"user")
+	imageName, err := uploadCover(w,r,user.(dbs.User).Id)
+	if err != nil{
+		log.Println("handle the cover happend error")
+		w.WriteHeader(500)
+		return
+	}
+	//解析brief字段
+	brief := r.FormValue("brief")
+
+	//解析文件
+	file,fileHeader,err := r.FormFile("file")
+	if err != nil{
+		log.Println("upload happen error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer file.Close()
+	//限定文件大小
+	//fileheader.size是byte为单位的，处理成MB
+	//size := float64(fileHeader.Size)/1000000
+	//fmt.Fprintln(w,size,"MB")
+
+
+	//数据库连接
+	Db, err := dbs.GetConnect()
+	if err != nil {
+		log.Println("database is error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer Db.Close()
+
+	/**应该多步进行文件校验
+	1、文件后缀名判断（这个很蠢，但还是需要）
+	2、重新保存，文件名和文件名后缀由服务器来决定
+	**/
+
+	//1、后缀名获取并判断
+	//白名单
+
+	followExt := []string{"zip","rar","7z","tar","gz"}
+	reg := regexp.MustCompile(`.*[\.]{1}([^\.]+)`)
+
+	ext := reg.FindStringSubmatch(fileHeader.Filename)
+	if len(ext) != 2{
+		log.Println("ext is error ", ext)
+		w.WriteHeader(500)
+		return
+	}
+	//后缀名为ext[1]
+	in_follow := false
+	for _, follow := range followExt{
+		if follow == ext[1]{
+			in_follow = true
+		}
+	}
+	if in_follow == false {
+		log.Println("ext is error ", ext)
+		w.WriteHeader(500)
+		return
+	}
+
+	//2、重新保存文件
+	//检查路径是否存在，没有则创建
+	_,err = os.Stat("./upload/file/")
+	if err != nil {
+		os.MkdirAll("./upload/file",os.ModePerm)
+	}
+
+	//重新生成文件名
+	uname := uuid.Must(uuid.NewV4())
+	path := string(uname.String()+"."+ext[1])
+	f, err := os.OpenFile("./upload/file/"+path,os.O_WRONLY|os.O_CREATE,0666)
+	if err != nil{
+		fmt.Println(err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	defer f.Close()
+	io.Copy(f,file)
+
+	//数据库操作
+	//user,_ := sessionMgr.GetSessionVal(sessionId,"user")
+	//userName,_ := dbs.GetFullName(user.(dbs.User).Id,Db)
+	DbFile := &dbs.DbFile{
+		Time: time.Now(),
+		Size: float64(fileHeader.Size)/1000000,
+		ImgUrl: "/static/"+imageName,
+		Name: fileHeader.Filename,
+		Brief: brief,
+		Url: path,
+		//Uploader: userName ,
+	}
+	_, err = DbFile.Insert(Db)
+	if err != nil{
+		log.Println("database error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+
+
+	data := &back.BackInfo{
+		//Sessionid: sessionId,
+		Status: "OK",
+	}
+	json, _ := json.MarshalIndent(data,"","\t")
+	w.Write(json)
+
+}
 //获取文章
 func getCourseLimit(w http.ResponseWriter, r *http.Request){
 	data := back.CourseListLimit{}
@@ -601,6 +821,7 @@ func execBlog(w http.ResponseWriter, r *http.Request){
 }
 
 //博客的删除
+
 //博客的单篇查找
 func getBlogById(w http.ResponseWriter, r * http.Request){
 	//先检查登陆
@@ -627,30 +848,69 @@ func getBlogById(w http.ResponseWriter, r * http.Request){
 	}
 
 
-	article := &dbs.DbBlog{
+	articleDb := &dbs.DbBlog{
 		Id: blogId,
 	}
-	err = article.SearchBlog(Db)
+	err = articleDb.SearchBlog(Db)
 	if err != nil{
 		log.Println("search blog is err ",err.Error())
 		w.WriteHeader(500)
 		return
 	}
+	article := &back.Blog{
+		Id: blogId,
+		Keyword: articleDb.Keyword,
+		Title: articleDb.Title,
+		Content: articleDb.Content,
+		Summary: articleDb.Summary,
+		Author: articleDb.Author,
+		Record: articleDb.Record,
+		PublicStatus: articleDb.PublicStatus,
+		PublicTime: articleDb.PublicTime,
+		IsShow: articleDb.IsShow,
+	}
 	json, _ := json.MarshalIndent(article,"","\t")
 	w.Write(json)
 
 }
+
 //文件下载
-//这是个绝活
 func downloadHandler(w http.ResponseWriter, r *http.Request){
-	name := r.FormValue("name")
+	//检查登陆状态，单不限定post方法
+	sessionID := r.Header.Get("authentication")
+	_, flag := sessionMgr.GetSessionVal(sessionID,"user")
+	if flag == false{
+		log.Println("is not login")
+		w.WriteHeader(500)
+		return
+	}
+	//数据库操作
+	Db, err := dbs.GetConnect()
+	if err != nil{
+		log.Println("database is error ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
+	url := r.FormValue("url")
+	name,err := dbs.GetNameByUrl(Db,url)
+	if err != nil{
+		log.Println("the filename is not exist ",err.Error())
+		w.WriteHeader(500)
+		return
+	}
 	w.Header().Add("Content-Type","application/octet-stream")
 	w.Header().Add("Content-Disposition","attachment; filename=\""+name+"\"")
-	http.ServeFile(w,r,"test/"+name)
+	http.ServeFile(w,r,"upload/file/"+url)
 }
+
+//
 //测试用
 func uploadtest(w http.ResponseWriter, r *http.Request){
 	t,_ := template.ParseFiles("upload.html")
+	t.Execute(w,nil)
+}
+func downloadtest(w http.ResponseWriter, r *http.Request){
+	t,_ := template.ParseFiles("download.html")
 	t.Execute(w,nil)
 }
 func main(){
@@ -662,14 +922,18 @@ func main(){
 	http.HandleFunc("/se-token",index)
 	http.HandleFunc("/se-course",getCourseLimit)
 	http.HandleFunc("/se-blog",getBlogLimit)
-	http.HandleFunc("/se-upload",uploadImage)
+	http.HandleFunc("/se-uploadimage",uploadImage)
+	http.HandleFunc("/se-uploadfile",uploadFile)
 	http.HandleFunc("/se-blog-exec",execBlog)
-	//http.HandleFunc("/test",uploadtest)
 	http.HandleFunc("/se-download",downloadHandler)
 	http.HandleFunc("/se-article",getBlogById)
 	http.HandleFunc("/se-logout",logout)
+
+	//test
+	http.HandleFunc("/test",uploadtest)
+	http.HandleFunc("/download",downloadtest)
+
 	images := http.FileServer(http.Dir("./upload/image/"))
-	
 	http.Handle("/static/",http.StripPrefix("/static/",images))
 
 

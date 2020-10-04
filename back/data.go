@@ -66,6 +66,11 @@ type ImageUrl struct{
 	Status string `json:"status"`
 }
 
+//查询上传文件的单个文件信息
+type File struct {
+
+}
+
 //博客增改删通用返回数据
 type Normal struct{
 	BlogId int64 `json:"blogid"`

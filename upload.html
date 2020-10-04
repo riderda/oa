@@ -5,9 +5,14 @@
     <title>Title</title>
 </head>
 <body>
-<form enctype="multipart/form-data" action="/se-upload" method="post">
-    <input type="file" name="image" />
+<form enctype="multipart/form-data" action="/se-uploadfile" method="post">
+    <input type="file" name="cover"/>
+    <hr />
+    <input type="file" name="file" />
+    <hr>
+    <textarea name="brief">
 
+    </textarea>
     <input type="submit" value="upload" />
 </form>
 </body>

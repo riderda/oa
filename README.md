@@ -11,11 +11,15 @@
 
 |--- **/se-blog** //搜索博客
 
-|--- **/se-upload** //上传图片
+|--- **/se-uploadimage** //上传图片
+
+|--- **/se-uploadfile** //上传文件
 
 |--- **/se-blog-exec** //博客操作
 
 |--- **/se-article** //博客单篇查询
+
+|--- **/se-download** //文件下载
 
 ## 使用
 
@@ -61,7 +65,7 @@
   },
   "infolist" : {
       "userinfo": {
-              "sesionid": "XXXXXXXXXXXXX",
+              "sessionid": "XXXXXXXXXXXXX",
               "status": "success/fail"
         },
         "list": [
@@ -99,18 +103,18 @@
   	},
     keyword:"",
     "bloglist": [
-        	0: {
-            	"id":,
-            	"keyword":,
-            	"title":,
-            	"content":,//这个字段为空
-        		"summary":,
-            	"author":,
-            	"record":,
-            	"publicstatus":,
-            	"publictime":,
-        		"isshow":
-        	},
+        	"number":{
+            	"id":"",
+            	"keyword":"",
+            	"title":"",
+            	"content":"",//这个字段为空
+        		"summary":"",
+            	"author":"",
+            	"record":"",
+            	"publicstatus":"",
+            	"publictime":"",
+        		"isshow":""
+        	}
         	...
 		]
        ...
@@ -119,7 +123,7 @@
 
 
 
-### **/se-upload**
+### **/se-uploadimage**
 
 > **用于上传图片**
 >
@@ -127,16 +131,49 @@
 >
 > 请求头里需要authentication字段，作为代替cookie，将从 **/se-token**获取的sessionid作为值
 
-```shell
+```json
 {
-	"url" : ,
-	"status" : ,
+	"url":"",
+	"status":"OK/not login sessionId"
 }
 ```
 
 > 需要注意的是：返回的url格式汝下
 >
 > /static/0e3c4adb-b74d-496b-9f21-0557c1e89777.png
+
+
+
+### /se-uploadfile
+
+> **用于上传文件压缩包**
+>
+> > **压缩文件**
+> >
+> > 用**post**方法发送请求，允许的类型有**.zip** , **.7z** , **.rar** ,  **.gz** , **.tar** 。
+> >
+> > 字段要求：**name = “file“**
+>
+> > **封面**
+> >
+> > 用**post**方法发送请求，允许的类型有**.png , .jpg , .jpeg** 。
+> >
+> > 字段要求：**name = “cover“**
+>
+> >**简介**
+> >
+> >字段要求：**name = ”brief“**
+>
+> 请求头里需要authentication字段，作为代替cookie，将从 **/se-token**获取的sessionid作为值
+
+```json
+{
+	"sessionid":"",
+	"status":"OK/not login sessionId"
+}
+```
+
+
 
 
 
@@ -150,12 +187,12 @@
 
 ```json
 {
-    "id":,//文章id，如果是新建则不需要
-    "keyword":,//关键词，各个关键词之间用 ; 分开
-    "title":,
-    "content":,
-    "status":,//决定文章是处于发布状态或者草稿状态，发布状态为 release
-    "command": "add/update" //控制操作
+    "id":"",//文章id，如果是新建则不需要
+    "keyword":"",//关键词，各个关键词之间用 ; 分开
+    "title":"",
+    "content":"",
+    "status":"",//决定文章是处于发布状态或者草稿状态，发布状态为 release
+    "command":"add/update" //控制操作
 }
 ```
 
@@ -181,16 +218,16 @@
 
 ```json
 {		
-				"id":,
-            	"keyword":,
-            	"title":,
-            	"content":,//这个字段为空
-        		"summary":,
-            	"author":,
-            	"record":,
-            	"publicstatus":,
-            	"publictime":,
-        		"isshow":
+				"id":"",
+            	"keyword":"",
+            	"title":"",
+            	"content":"",//这个字段为空
+        		"summary":"",
+            	"author":"",
+            	"record":"",
+            	"publicstatus":"",
+            	"publictime":"",
+        		"isshow":""
 }
 ```
 
@@ -201,4 +238,16 @@
 > 请求头里需要authentication字段，作为代替cookie，将从 **/se-token**获取的sessionid作为值
 >
 > 操作失败时返回**500状态码**
+
+### /se-download
+
+> 用于下载文件
+>
+> 字段要求：**在链接后面带上名为url的参数**，如下
+>
+> ```
+> /se-download?url=b8068f27-ef84-4de9-be9c-ce07d11ef8ba.7z
+> ```
+>
+> 
 
